@@ -1,0 +1,78 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "98e0bbd2-2170-48a2-ac1c-cca4fcc7b5c1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "1665b53f-43af-4569-b899-f91399b88af9",
+      "name": "Webhook",
+      "webhookId": "98e0bbd2-2170-48a2-ac1c-cca4fcc7b5c1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.1-8b-instant\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a SOC analyst. Analyze this Wazuh security alert and provide: 1) Severity 2) Attack type 3) MITRE technique 4) Recommended action. Be concise.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Analyze this alert: Rule 100001 fired - New user account created on vm-attacker. Level 10 severity.\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "2bc83882-8d61-463f-9958-598e1c95182e",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "2036ac7e-2020-4a59-b3b2-cf1322ba0fd0",
+  "meta": {
+    "instanceId": "d744adf99d18f3c5bae39766d40f4567c06be183bfda2d507a4bb7cc6485717a"
+  },
+  "id": "R3Rj0Ad6VUcsQd1N",
+  "tags": []
+}
