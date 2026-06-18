@@ -1,0 +1,13 @@
+[Unit]
+Description=Wazuh to n8n Webhook Log Forwarding Bridge
+After=network.target wazuh-manager.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/wazuh_bridge.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
