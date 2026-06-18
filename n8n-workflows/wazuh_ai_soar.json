@@ -1,0 +1,143 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alerts-ingest",
+        "options": {}
+      },
+      "name": "Webhook Ingestion Hook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "value1": "={{ $json.body.rule.level }}",
+              "operation": "largerEqual",
+              "value2": 12,
+              "itemName": "Critical Threat Routing"
+            }
+          ]
+        }
+      },
+      "name": "Severity Rule Switch Gate",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY_HERE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama3-8b-8192\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an elite Tier-3 SOC Incident Response Analyst. Triage this raw security log string. Output a clean summary and a mandatory, bulleted operational playbook step sequence.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ JSON.stringify($json.body) }}\n    }\n  ]\n}"
+      },
+      "name": "Llama-3 Gen-AI Triage Node",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.abuseipdb.com/api/v2/check",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Key",
+              "value": "YOUR_ABUSEIPDB_API_KEY_HERE"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ipAddress",
+              "value": "={{ $json.body?.data?.srcip || $json.body?.data?.client_ip || \"127.0.0.1\" }}"
+            }
+          ]
+        }
+      },
+      "name": "AbuseIPDB Threat Intelligence Node",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [520, 400]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "to": "engpuneesh@gmail.com",
+        "subject": "⚠️ [SOC AUTOMATION TRIAGE] - High/Critical Incident Flagged",
+        "emailType": "html",
+        "message": "=<h2 style=\"color: #d9534f; margin-bottom: 5px;\">🚨 AUTOMATED INDUSTRIAL SOC INCIDENT REPORT</h2>\n<p style=\"margin-top: 0; color: #555;\">The platform has autonomously intercepted, categorized, and enriched an anomalous security event dropped from your Wazuh infrastructure.</p>\n<hr style=\"border: 0; border-top: 1px solid #eee;\" />\n<h3 style=\"color: #333; background-color: #f2f2f2; padding: 6px 10px; border-radius: 4px;\">👤 IDENTITY ATTRIBUTION (WHO DID THIS?)</h3>\n<ul style=\"list-style-type: none; padding-left: 5px; line-height: 1.6;\">\n  <li><strong>Target System Hostname:</strong> <span style=\"color: #c7254e; background-color: #f9f2f4; padding: 2px 4px; border-radius: 3px;\">{{ $json[\"agent\"][\"name\"] || \"vm-attacker\" }}</span></li>\n  <li><strong>Triggered User Account:</strong> <code>{{ $json[\"data\"]?.[\"srcuser\"] || $json[\"data\"]?.[\"dstuser\"] || \"System/Root\" }}</code></li>\n  <li><strong>True Login Session Identity (AUID):</strong> <strong style=\"color: #2b542c;\">{{ $json[\"data\"]?.[\"audit\"]?.[\"auid\"] || \"Direct Shell Session\" }}</strong></li>\n</ul>"
+      },
+      "name": "Gmail Dispatch Engine",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [800, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Ingestion Hook": {
+      "main": [
+        [
+          {
+            "node": "Severity Rule Switch Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity Rule Switch Gate": {
+      "main": [
+        [
+          {
+            "node": "Llama-3 Gen-AI Triage Node",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AbuseIPDB Threat Intelligence Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Llama-3 Gen-AI Triage Node": {
+      "main": [
+        [
+          {
+            "node": "Gmail Dispatch Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
