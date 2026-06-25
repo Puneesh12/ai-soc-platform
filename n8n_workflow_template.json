@@ -1,8 +1,4 @@
----
 
-# File 2: n8n_workflow_template.json
-
-```json
 {
   "nodes": [
     {
