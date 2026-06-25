@@ -1,0 +1,154 @@
+---
+
+# File 2: n8n_workflow_template.json
+
+```json
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alerts-receiver",
+        "options": {}
+      },
+      "id": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Wazuh Webhook Listener",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.body.rule.level }}",
+              "operation": "largerEqual",
+              "value2": 7
+            }
+          ]
+        }
+      },
+      "id": "2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+      "name": "Severity Switch Node",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.abuseipdb.com/api/v2/check",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQueryParameters": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ipAddress",
+              "value": "={{ $json.body.data.srcip || '127.0.0.1' }}"
+            },
+            {
+              "name": "maxAgeInDays",
+              "value": "90"
+            },
+            {
+              "name": "verbose",
+              "value": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-7a8b-9c0d-1e2f-3a4b5c6d7e8f",
+      "name": "AbuseIPDB Enrichment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [690, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "mock-credential-abuseipdb-id",
+          "name": "AbuseIPDB API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const alert = typeof Object.values($node[\"Wazuh Webhook Listener\"].json.body)[0] === 'object' ? $node[\"Wazuh Webhook Listener\"].json.body : JSON.parse($node[\"Wazuh Webhook Listener\"].json.body);\nconst intel = $json.data || {};\n\nconst formattedHtml = `\n  <div style=\"font-family: Arial, sans-serif; border: 1px solid #dcdcdc; padding: 20px; border-radius: 5px;\">\n    <h2 style=\"color: #d9534f;\">🚨 High Severity Security Alert - Level ${alert.rule?.level || 'Unknown'}</h2>\n    <p><strong>Rule ID:</strong> ${alert.rule?.id || 'N/A'}</p>\n    <p><strong>Description:</strong> ${alert.rule?.description || 'No description provided.'}</p>\n    <p><strong>Target Host:</strong> ${alert.agent?.name || 'Local Host Machine'}</p>\n    <hr style=\"border: 0; border-top: 1px solid #eee;\" />\n    <h3 style=\"color: #f0ad4e;\">🌐 Threat Intelligence Enrichment</h3>\n    <p><strong>Source IP Logged:</strong> ${alert.data?.srcip || 'N/A (Local / Internal Execution)'}</p>\n    <p><strong>Abuse Confidence Score:</strong> ${intel.abuseConfidenceScore !== undefined ? intel.abuseConfidenceScore + '%' : 'N/A'}</p>\n    <p><strong>Total Reports:</strong> ${intel.totalReports || 0}</p>\n    <p><strong>Country Code:</strong> ${intel.countryCode || 'N/A'}</p>\n  </div>\n`;\n\nreturn { htmlReport: formattedHtml, ruleId: alert.rule?.id || 'Alert' };"
+      },
+      "id": "4d5e6f7a-8b9c-0d1e-2f3a-4b5c6d7e8f9a",
+      "name": "JSON Parser & HTML Compiler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [910, 200]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "toEmail": "soc-triage@yourcompany.com",
+        "subject": "=🚨 [SOC ALERT] Critical Rule Triggered: {{ $json.ruleId }}",
+        "html": "={{ $json.htmlReport }}",
+        "options": {}
+      },
+      "id": "5e6f7a8b-9c0d-1e2f-3a4b-5c6d7e8f9a0b",
+      "name": "Gmail Security Alert Dispatch",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1130, 200],
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "mock-credential-oauth-id",
+          "name": "Gmail Enterprise OAuth2 Slot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Wazuh Webhook Listener": {
+      "main": [
+        [
+          {
+            "node": "Severity Switch Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity Switch Node": {
+      "main": [
+        [
+          {
+            "node": "AbuseIPDB Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AbuseIPDB Enrichment": {
+      "main": [
+        [
+          {
+            "node": "JSON Parser & HTML Compiler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Parser & HTML Compiler": {
+      "main": [
+        [
+          {
+            "node": "Gmail Security Alert Dispatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
+
